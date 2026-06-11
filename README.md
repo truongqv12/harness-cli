@@ -10,14 +10,17 @@ private harness bundle payload.
 Install from this GitHub repository:
 
 ```bash
-npm install -g github:truongqv12/harness-cli
+npm install -g github:truongqv12/harness-cli --install-links=true
 vnpt-harness --version
 ```
+
+Use `--install-links=true` for Git sources. With `install-links=false`, npm can
+leave the global package as a link to a temporary git checkout on Windows.
 
 Private GitHub repository install also works when your Git SSH access is set up:
 
 ```bash
-npm install -g git+ssh://git@github.com/truongqv12/harness-cli.git
+npm install -g git+ssh://git@github.com/truongqv12/harness-cli.git --install-links=true
 ```
 
 Run without installing globally:
@@ -34,8 +37,20 @@ npm install -g vnpt-harness-cli
 
 ## Usage
 
+Set the private bundle source once:
+
 ```bash
-vnpt-harness init --source gitlab:gitlab.example.com/group/vnpt-it-harness --release latest --yes
+vnpt-harness config set source gitlab:<gitlab-host>/<group>/<vnpt-it-harness-repo>
+vnpt-harness init --release latest --yes
+```
+
+You can also set `VNPT_HARNESS_SOURCE` for a shell session or pass `--source`
+per command.
+
+One-off source:
+
+```bash
+vnpt-harness init --source gitlab:<gitlab-host>/<group>/<vnpt-it-harness-repo> --release latest --yes
 ```
 
 Local bundle development:
@@ -53,4 +68,6 @@ Commands:
 - `doctor`: check local CLI, provider, and project state health.
 - `config`: manage user or project config.
 
-The CLI does not ship private bundle payloads or default private source values. Provide bundle source explicitly through CLI flags, config, or environment.
+The CLI does not ship private bundle payloads or hardcoded private source
+values. Configure the source once with `vnpt-harness config set source`, set
+`VNPT_HARNESS_SOURCE`, or pass `--source` explicitly.
