@@ -1,0 +1,29 @@
+{
+  "name": "vnpt-harness-cli",
+  "version": "0.4.0",
+  "description": "Public CLI for installing and maintaining VNPT harness bundles.",
+  "private": false,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/truongqv12/harness-cli.git"
+  },
+  "bin": {
+    "vnpt-harness": "src/main.mjs"
+  },
+  "scripts": {
+    "build": "node --check src/main.mjs",
+    "pack:dry-run": "npm pack --dry-run",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0"
+  },
+  "files": [
+    "README.md",
+    "src"
+  ]
+}
