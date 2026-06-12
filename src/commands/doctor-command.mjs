@@ -20,7 +20,7 @@ export function runDoctor(args, context) {
   console.log(`target: ${installedRoot}`);
   console.log(`node: ${process.version}`);
   console.log(`git: ${available('git') ? 'available' : 'missing'}`);
-  console.log(`glab: ${available('glab') ? 'available' : 'missing (optional)'}`);
+  console.log(`glab: ${available('glab') ? 'available' : 'missing'} (optional; HTTPS GitLab uses git)`);
   console.log(`gh: ${available('gh') ? 'available' : 'missing (optional)'}`);
   console.log(`claude state: ${fs.existsSync(claudeState) ? claudeState : 'missing'}`);
   console.log(`codex state: ${fs.existsSync(codexState) ? codexState : 'missing'}`);

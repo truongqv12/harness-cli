@@ -6,12 +6,21 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { parseCli } from '../src/cli-parser.mjs';
+import { sourceFiles } from '../src/core/inventory.mjs';
 import { resolveTarget } from '../src/core/target-resolver.mjs';
 import { hideCredentials, parseGitLabSource, resolveSource } from '../src/core/source-resolver.mjs';
+import { gitlabProvider } from '../src/providers/gitlab-provider.mjs';
 
 function git(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.stdout);
+}
+
+function writeFakeCommand(binDir, name, script) {
+  const filePath = path.join(binDir, process.platform === 'win32' ? `${name}.cmd` : name);
+  const body = process.platform === 'win32' ? `@echo off\r\n${script}\r\n` : `#!/usr/bin/env sh\n${script}\n`;
+  fs.writeFileSync(filePath, body, 'utf8');
+  if (process.platform !== 'win32') fs.chmodSync(filePath, 0o755);
 }
 
 test('parser defaults to init and accepts source aliases', () => {
@@ -66,8 +75,98 @@ test('gitlab provider source parses host and repo path without defaults', () => 
     host: 'gitlab.example.com',
     repoPath: 'group/subgroup/project',
     display: 'gitlab:gitlab.example.com/group/subgroup/project',
-    cloneUrl: 'https://gitlab.example.com/group/subgroup/project.git'
+    cloneUrl: 'https://gitlab.example.com/group/subgroup/project.git',
+    useGlab: true
   });
+});
+
+test('gitlab provider source parses explicit HTTPS URLs without glab', () => {
+  assert.deepEqual(parseGitLabSource('gitlab:https://gitlab.example.com/group/project'), {
+    host: 'gitlab.example.com',
+    repoPath: 'group/project',
+    display: 'gitlab:gitlab.example.com/group/project',
+    cloneUrl: 'https://gitlab.example.com/group/project.git',
+    useGlab: false
+  });
+  assert.deepEqual(parseGitLabSource('gitlab:https://gitlab.example.com/group/subgroup/project.git'), {
+    host: 'gitlab.example.com',
+    repoPath: 'group/subgroup/project',
+    display: 'gitlab:gitlab.example.com/group/subgroup/project',
+    cloneUrl: 'https://gitlab.example.com/group/subgroup/project.git',
+    useGlab: false
+  });
+});
+
+test('gitlab provider source sanitizes URL credentials and requires project path', () => {
+  assert.deepEqual(parseGitLabSource('gitlab:https://user:pass@gitlab.example.com/group/project.git?private_token=abc#main'), {
+    host: 'gitlab.example.com',
+    repoPath: 'group/project',
+    display: 'gitlab:gitlab.example.com/group/project',
+    cloneUrl: 'https://gitlab.example.com/group/project.git',
+    useGlab: false
+  });
+  assert.throws(() => parseGitLabSource('gitlab:https://gitlab.example.com/group'), /GitLab source must be/);
+  assert.equal(parseGitLabSource('https://gitlab.example.com/group/project'), null);
+});
+
+test('gitlab URL-form sources bypass glab before git clone', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vnpt-gitlab-provider-'));
+  const binDir = path.join(root, 'bin');
+  const glabMarker = path.join(root, 'glab-used.txt');
+  fs.mkdirSync(binDir, { recursive: true });
+  writeFakeCommand(binDir, 'glab', process.platform === 'win32' ? 'echo glab > "%GLAB_MARKER%"' : 'printf glab > "$GLAB_MARKER"');
+  const provider = gitlabProvider();
+  const tempRoots = [];
+  try {
+    let error;
+    const env = {
+      ...process.env,
+      PATH: binDir,
+      Path: binDir,
+      GLAB_MARKER: glabMarker,
+      VNPT_HARNESS_TOKEN: 'vnpt-token-redacted-check',
+      CI_JOB_TOKEN: 'job-token-redacted-check'
+    };
+    assert.throws(
+      () => provider.resolve({
+        source: 'gitlab:https://gitlab.example.com/group/project',
+        ref: 'latest',
+        env,
+        makeTempRoot: () => {
+          const tempRoot = fs.mkdtempSync(path.join(root, 'clone-'));
+          tempRoots.push(tempRoot);
+          return tempRoot;
+        },
+        removeTempRoot: (target) => fs.rmSync(target, { recursive: true, force: true })
+      }),
+      (err) => {
+        error = err;
+        return /git clone failed for gitlab:gitlab\.example\.com\/group\/project/.test(err.message);
+      }
+    );
+    assert.doesNotMatch(error.message, /vnpt-token-redacted-check|job-token-redacted-check/);
+    assert.ok(!fs.existsSync(glabMarker));
+  } finally {
+    for (const tempRoot of tempRoots) fs.rmSync(tempRoot, { recursive: true, force: true });
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('source validation reports all missing managed sources together', () => {
+  const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vnpt-source-missing-'));
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vnpt-target-missing-'));
+  try {
+    assert.throws(
+      () => sourceFiles(sourceRoot, projectRoot, [
+        { source: 'plans/templates', target: 'plans/templates' },
+        { source: 'scripts/bin', target: 'scripts/bin' }
+      ], []),
+      /Required source paths missing: plans\/templates, scripts\/bin/
+    );
+  } finally {
+    fs.rmSync(sourceRoot, { recursive: true, force: true });
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test('generic git source clones default branch for latest', () => {

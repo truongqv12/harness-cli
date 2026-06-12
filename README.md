@@ -35,22 +35,50 @@ If this package is published to the npm registry later, use:
 npm install -g vnpt-harness-cli
 ```
 
+Update the CLI from the current GitHub distribution source:
+
+```bash
+vnpt-harness update --dry-run
+vnpt-harness update
+```
+
+Use `--registry <url>` only when `vnpt-harness-cli` is published to an npm registry.
+
 ## Usage
 
 Set the private bundle source once:
 
 ```bash
-vnpt-harness config set source gitlab:<gitlab-host>/<group>/<vnpt-it-harness-repo>
+vnpt-harness config set source gitlab:https://<gitlab-host>/<group>/<vnpt-it-harness-repo>
 vnpt-harness init --release latest --yes
 ```
 
 You can also set `VNPT_HARNESS_SOURCE` for a shell session or pass `--source`
 per command.
 
-One-off source:
+Archive-first install:
+
+```bash
+vnpt-harness init --archive /path/to/vnpt-it-harness-<version>.tar.gz --release <version> --yes
+```
+
+One-off GitLab source:
 
 ```bash
 vnpt-harness init --source gitlab:<gitlab-host>/<group>/<vnpt-it-harness-repo> --release latest --yes
+```
+
+Explicit GitLab HTTPS sources use `git clone` over HTTPS and do not require
+`glab`:
+
+```bash
+vnpt-harness init --source gitlab:https://<gitlab-host>/<group>/<vnpt-it-harness-repo>.git --release main --yes
+```
+
+Plain HTTPS remains a generic Git source:
+
+```bash
+vnpt-harness init --source https://<git-host>/<group>/<repo>.git --release main --yes
 ```
 
 Local bundle development:
@@ -63,7 +91,7 @@ Commands:
 
 - `init`: install or update project harness files.
 - `install`: compatibility alias for `init`.
-- `update`: update this CLI package only.
+- `update`: update this CLI package only. Project harness files are updated with `init`.
 - `migrate`: migrate installed harness assets for another agent.
 - `doctor`: check local CLI, provider, and project state health.
 - `config`: manage user or project config.

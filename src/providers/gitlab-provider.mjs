@@ -4,8 +4,33 @@ import { SourceProviderError, PROVIDER_ERROR } from './provider-errors.mjs';
 
 export function parseGitLabSource(value = '') {
   if (!value.startsWith('gitlab:')) return null;
-  const spec = value.slice('gitlab:'.length).replace(/^\/+/, '');
-  const parts = spec.split('/').filter(Boolean);
+  const spec = value.slice('gitlab:'.length);
+  if (/^https?:\/\//i.test(spec)) {
+    let url;
+    try {
+      url = new URL(spec);
+    } catch {
+      throw new SourceProviderError(PROVIDER_ERROR.UNSUPPORTED_SOURCE, 'GitLab source must be gitlab:<host>/<namespace>/<project>');
+    }
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+    const repoPath = url.pathname.replace(/^\/+|\/+$/g, '').replace(/\.git$/i, '');
+    if (!url.host || repoPath.split('/').filter(Boolean).length < 2) {
+      throw new SourceProviderError(PROVIDER_ERROR.UNSUPPORTED_SOURCE, 'GitLab source must be gitlab:<host>/<namespace>/<project>');
+    }
+    return {
+      host: url.host,
+      repoPath,
+      display: `gitlab:${url.host}/${repoPath}`,
+      cloneUrl: `${url.protocol}//${url.host}/${repoPath}.git`,
+      useGlab: false
+    };
+  }
+
+  const shorthand = spec.replace(/^\/+/, '');
+  const parts = shorthand.split('/').filter(Boolean);
   if (parts.length < 3) {
     throw new SourceProviderError(PROVIDER_ERROR.UNSUPPORTED_SOURCE, 'GitLab source must be gitlab:<host>/<namespace>/<project>');
   }
@@ -15,7 +40,8 @@ export function parseGitLabSource(value = '') {
     host,
     repoPath,
     display: `gitlab:${host}/${repoPath}`,
-    cloneUrl: `https://${host}/${repoPath}.git`
+    cloneUrl: `https://${host}/${repoPath}.git`,
+    useGlab: true
   };
 }
 
@@ -41,7 +67,7 @@ export function gitlabProvider() {
     },
     resolve(input) {
       const gitlab = parseGitLabSource(input.source);
-      if (commandExists('glab', input.env)) {
+      if (gitlab.useGlab && commandExists('glab', input.env)) {
         const tempRoot = input.makeTempRoot();
         const result = glabClone(gitlab, input.ref, tempRoot, input.env);
         if (result.status === 0) {

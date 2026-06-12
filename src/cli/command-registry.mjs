@@ -35,9 +35,9 @@ export function formatHelp() {
     'vnpt-harness',
     '',
     'Usage:',
-    '  vnpt-harness init [--source <path|git|gitlab:host/group/project>] [--release <ref>] [--dir <dir>] [--yes]',
+    '  vnpt-harness init [--source <path|git-url|gitlab:host/group/project|gitlab:https://host/group/project>] [--archive <tar.gz>] [--release <ref>] [--dir <dir>] [--yes]',
     '  vnpt-harness install [options]       # compatibility alias for init',
-    '  vnpt-harness update [--check|--release <version>]',
+    '  vnpt-harness update [--check|--dry-run|--release <ref>|--source <npm|git>]',
     '  vnpt-harness migrate --agent codex [options]',
     '',
     'Commands:'

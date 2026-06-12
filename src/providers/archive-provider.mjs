@@ -14,11 +14,19 @@ function unsafeEntry(entry) {
   return path.isAbsolute(entry) || normalized.split('/').includes('..');
 }
 
+function tarCommand() {
+  if (process.platform !== 'win32') return 'tar';
+  const systemRoot = process.env.SystemRoot || process.env.WINDIR;
+  if (!systemRoot) return 'tar';
+  const candidate = path.join(systemRoot, 'System32', 'tar.exe');
+  return fs.existsSync(candidate) ? candidate : 'tar';
+}
+
 function validateArchive(archive, env) {
   if (!supportedArchive(archive)) {
     throw new SourceProviderError(PROVIDER_ERROR.UNSUPPORTED_ARCHIVE, `Unsupported archive type: ${archive}`);
   }
-  const list = runCommand('tar', ['-tf', archive], { env, encoding: 'utf8', stdio: 'pipe' });
+  const list = runCommand(tarCommand(), ['-tf', archive], { env, encoding: 'utf8', stdio: 'pipe' });
   if (list.status !== 0) {
     throw new SourceProviderError(PROVIDER_ERROR.UNSUPPORTED_ARCHIVE, `Archive cannot be read: ${archive}`);
   }
@@ -42,7 +50,7 @@ export function archiveProvider() {
       }
       validateArchive(archive, input.env);
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vnpt-harness-archive-'));
-      const extract = runCommand('tar', ['-xf', archive, '-C', tempRoot], { env: input.env });
+      const extract = runCommand(tarCommand(), ['-xf', archive, '-C', tempRoot], { env: input.env });
       if (extract.status !== 0) {
         fs.rmSync(tempRoot, { recursive: true, force: true });
         throw new SourceProviderError(PROVIDER_ERROR.UNSUPPORTED_ARCHIVE, `Archive extraction failed: ${input.archive}`);

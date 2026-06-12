@@ -20,10 +20,15 @@ export function existingManagedRoots(projectRoot, targets) {
 }
 
 export function sourceFiles(sourceRoot, projectRoot, targets, patterns) {
+  const missing = targets
+    .map((target) => ({ target, sourcePath: path.join(sourceRoot, target.source) }))
+    .filter((item) => !fs.existsSync(item.sourcePath))
+    .map((item) => item.target.source);
+  if (missing.length > 0) throw new Error(`Required source paths missing: ${missing.join(', ')}`);
+
   const files = [];
   for (const target of targets) {
     const sourcePath = path.join(sourceRoot, target.source);
-    if (!fs.existsSync(sourcePath)) throw new Error(`Required source path missing: ${target.source}`);
     const sourceStat = fs.statSync(sourcePath);
     const candidates = sourceStat.isFile() ? [sourcePath] : walkFiles(sourcePath);
     for (const filePath of candidates) {
